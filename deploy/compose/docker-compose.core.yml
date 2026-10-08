@@ -75,14 +75,15 @@ services:
 
   # AIC Application Server with FastAPI
   # Runs aic_app.py which starts the controller with API via with_api=True.
+  # Uses the minimal core control app (no node subscriptions, no AI/LLM agent).
   # Plugin installation order: framework -> plugins -> app.
   aic_server:
     container_name: aic_server
     build:
       context: ../../
-      dockerfile: control_applications/control_application_v2_example/Dockerfile
+      dockerfile: control_applications/control_application_core/Dockerfile
     volumes:
-      - ../../control_applications/control_application_v2_example/:/app
+      - ../../control_applications/control_application_core/:/app
       - ../../controller_components/ai_nn_controller/:/ai_nn_controller
       - ../../plugins/console_plugin/:/console_plugin
     ports:
