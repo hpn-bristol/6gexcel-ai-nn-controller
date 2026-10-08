@@ -1,0 +1,118 @@
+# Core-only Docker Compose for ai_nn_controller.
+# Runs the controller framework (registration, message broker, REST/MCP server)
+# plus the interactive fastapi_client CLI shell. No simulated nodes, no AI/LLM agent.
+#
+# Generic file: no hostnames, IPs, or deployment-specific values are hardcoded.
+# All services use restart: unless-stopped so they come back when the Docker
+# daemon starts (pair with `systemctl enable docker` for auto-start on boot).
+
+services:
+  # Redis database for state
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - aic_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Register service - handles node and app registration
+  aic_register:
+    container_name: aic_register
+    build:
+      context: ./controller_components/register/
+      dockerfile: Dockerfile
+    volumes:
+      - ./controller_components/register/:/register
+      - ./control_applications/:/control_applications
+      - ./:/workspace
+    tty: true
+    stdin_open: true
+    command: python3 register.py
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - aic_network
+    ports:
+      - "5558:5558"
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # Message broker
+  node_msg_broker:
+    container_name: node_msg_broker
+    build:
+      context: ./controller_components/node_msg_broker/
+      dockerfile: Dockerfile
+    volumes:
+      - ./controller_components/node_msg_broker/:/node_msg_broker
+    tty: true
+    stdin_open: true
+    depends_on:
+      - aic_register
+    networks:
+      - aic_network
+    ports:
+      - "5554:5554"
+      - "5555:5555"
+      - "5557:5557"
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  # AIC Application Server with FastAPI
+  # Runs aic_app.py which starts the controller with API via with_api=True.
+  # Plugin installation order: framework -> plugins -> app.
+  aic_server:
+    container_name: aic_server
+    build:
+      context: ./
+      dockerfile: control_applications/control_application_v2_example/Dockerfile
+    volumes:
+      - ./control_applications/control_application_v2_example/:/app
+      - ./controller_components/ai_nn_controller/:/ai_nn_controller
+      - ./plugins/console_plugin/:/console_plugin
+    ports:
+      - "8000:8000"  # Expose FastAPI on port 8000
+    networks:
+      - aic_network
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: >
+      sh -c "sleep 25
+      && pip install --no-cache-dir /ai_nn_controller
+      && pip install --no-cache-dir /console_plugin
+      && pip install --no-cache-dir /app
+      && python3 aic_app.py --verbose"
+
+  # FastAPI client interface (interactive `aic>` CLI shell)
+  fastapi_client:
+    container_name: fastapi_client
+    build:
+      context: ./fastapi_client/
+      dockerfile: Dockerfile
+    volumes:
+      - ./fastapi_client/:/app
+    networks:
+      - aic_network
+    depends_on:
+      - aic_server
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: "/bin/bash"  # Interactive shell
+
+networks:
+  aic_network:
+    driver: bridge
