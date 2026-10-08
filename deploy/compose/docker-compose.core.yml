@@ -31,12 +31,12 @@ services:
   aic_register:
     container_name: aic_register
     build:
-      context: ./controller_components/register/
+      context: ../../controller_components/register/
       dockerfile: Dockerfile
     volumes:
-      - ./controller_components/register/:/register
-      - ./control_applications/:/control_applications
-      - ./:/workspace
+      - ../../controller_components/register/:/register
+      - ../../control_applications/:/control_applications
+      - ../../:/workspace
     tty: true
     stdin_open: true
     command: python3 register.py
@@ -55,10 +55,10 @@ services:
   node_msg_broker:
     container_name: node_msg_broker
     build:
-      context: ./controller_components/node_msg_broker/
+      context: ../../controller_components/node_msg_broker/
       dockerfile: Dockerfile
     volumes:
-      - ./controller_components/node_msg_broker/:/node_msg_broker
+      - ../../controller_components/node_msg_broker/:/node_msg_broker
     tty: true
     stdin_open: true
     depends_on:
@@ -79,12 +79,12 @@ services:
   aic_server:
     container_name: aic_server
     build:
-      context: ./
+      context: ../../
       dockerfile: control_applications/control_application_v2_example/Dockerfile
     volumes:
-      - ./control_applications/control_application_v2_example/:/app
-      - ./controller_components/ai_nn_controller/:/ai_nn_controller
-      - ./plugins/console_plugin/:/console_plugin
+      - ../../control_applications/control_application_v2_example/:/app
+      - ../../controller_components/ai_nn_controller/:/ai_nn_controller
+      - ../../plugins/console_plugin/:/console_plugin
     ports:
       - "8000:8000"  # Expose FastAPI on port 8000
     networks:
@@ -103,10 +103,10 @@ services:
   fastapi_client:
     container_name: fastapi_client
     build:
-      context: ./fastapi_client/
+      context: ../../fastapi_client/
       dockerfile: Dockerfile
     volumes:
-      - ./fastapi_client/:/app
+      - ../../fastapi_client/:/app
     networks:
       - aic_network
     depends_on:
